@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pinner</title>
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pinner">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Pinner</h1>
+    <button id="sync" class="sync" data-action="sync" title="Sincronizza"><span class="sync-dot"></span><span id="sync-text"></span></button>
+  </header>
+
+  <div id="toolbar" class="toolbar"></div>
+  <main id="main"></main>
+
+  <nav class="tabs">
+    <button data-tab="calendar">📅<span>Calendario</span></button>
+    <button data-tab="stats">📊<span>Statistiche</span></button>
+    <button data-tab="icons">🎨<span>Icone</span></button>
+    <button data-tab="settings">⚙️<span>Impostazioni</span></button>
+  </nav>
+
+  <dialog id="modal"></dialog>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
