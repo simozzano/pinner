@@ -25,7 +25,7 @@ Se modifichi il codice, crea una **nuova versione** della distribuzione (l'URL r
 
 ## 3. Configurazione app
 
-Nella scheda **Impostazioni** inserisci URL `/exec` e token. Su mobile usa "Aggiungi a schermata Home" per installarla.
+Incolla l'URL `/exec` in [config.js](config.js) e fai commit/push. Poi, nella scheda **Impostazioni** dell'app, inserisci solo la password (`SECRET`). Su mobile usa "Aggiungi a schermata Home" per installarla.
 
 ## Funzionamento
 
