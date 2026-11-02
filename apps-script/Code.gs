@@ -5,8 +5,12 @@
  * Vedi README.md per i passaggi.
  */
 
-// Cambia questo valore: lo stesso va inserito nelle impostazioni dell'app.
-const SECRET = 'CAMBIA-QUESTO-SEGRETO';
+// La password NON sta nel codice: va impostata come proprietà dello script
+// (Impostazioni progetto → Proprietà dello script → chiave SECRET).
+// Lo stesso valore va inserito nelle Impostazioni dell'app.
+function secret_() {
+  return PropertiesService.getScriptProperties().getProperty('SECRET');
+}
 
 const SHEET_ICONS = 'Icons';
 const SHEET_ENTRIES = 'Entries';
@@ -22,7 +26,9 @@ function doPost(e) {
   try {
     lock.waitLock(20000);
     const req = JSON.parse(e.postData.contents);
-    if (req.token !== SECRET) return json_({ ok: false, error: 'Token non valido' });
+    const secret = secret_();
+    if (!secret) return json_({ ok: false, error: 'Proprietà SECRET non impostata nello script' });
+    if (req.token !== secret) return json_({ ok: false, error: 'Token non valido' });
 
     switch (req.action) {
       case 'getAll':

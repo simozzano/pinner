@@ -6,7 +6,7 @@ PWA per segnare icone colorate (con etichetta) sui giorni di un calendario, con 
 
 1. Crea un nuovo Google Sheet.
 2. **Estensioni → Apps Script**, incolla il contenuto di [apps-script/Code.gs](apps-script/Code.gs).
-3. Cambia `SECRET` con una stringa a tua scelta.
+3. Imposta la password: **Impostazioni progetto (⚙️) → Proprietà dello script → Aggiungi proprietà**, chiave `SECRET`, valore a tua scelta. Resta salvata anche se aggiorni il codice.
 4. **Distribuisci → Nuova distribuzione → Tipo: App web**
    - Esegui come: **Me**
    - Chi ha accesso: **Chiunque**
