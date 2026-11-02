@@ -122,3 +122,13 @@ dialog h2 { margin: 0 0 8px; font-size: 18px; text-transform: capitalize; }
 .toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 18px + env(safe-area-inset-bottom)); transform: translateX(-50%);
   background: #222; color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 14px; z-index: 20; max-width: 90vw; }
 .empty-state { text-align: center; color: var(--muted); padding: 30px 10px; }
+
+/* Quantità */
+.dot { position: relative; }
+.badge { position: absolute; right: -4px; bottom: -4px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 99px;
+  background: var(--text); color: var(--card); font-size: 10px; line-height: 15px; text-align: center; font-weight: 700; }
+.dot.lg .badge { min-width: 18px; height: 18px; line-height: 18px; font-size: 12px; }
+.stepper { display: flex; align-items: center; gap: 6px; }
+.stepper b { min-width: 26px; text-align: center; font-size: 18px; }
+.stepper button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); font-size: 20px; padding: 0; }
+.check { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 14px; }

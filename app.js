@@ -31,7 +31,13 @@ const weekStart = d => addDays(d, -((d.getDay() + 6) % 7));
 const uid = () => 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const iconById = id => state.icons.find(i => i.id === id);
 const save = () => localStorage.setItem(LS_STATE, JSON.stringify(state));
-const dayIcons = ds => (state.days[ds] || []).map(iconById).filter(Boolean);
+// days: { 'yyyy-mm-dd': { iconId: quantità } } (migra il vecchio formato ad array)
+for (const [d, v] of Object.entries(state.days)) {
+  if (Array.isArray(v)) state.days[d] = Object.fromEntries(v.map(id => [id, 1]));
+}
+const qty = (ds, id) => (state.days[ds] || {})[id] || 0;
+const dayIcons = ds => Object.keys(state.days[ds] || {})
+  .map(id => { const ic = iconById(id); return ic && { ...ic, n: qty(ds, id) }; }).filter(Boolean);
 
 function toast(msg) {
   const t = $('#toast');
@@ -40,7 +46,8 @@ function toast(msg) {
   toast.t = setTimeout(() => (t.hidden = true), 2600);
 }
 
-const dot = (ic, cls = '') => `<span class="dot ${cls}" style="--c:${esc(ic.color)}"><i>${esc(ic.emoji)}</i></span>`;
+const dot = (ic, cls = '') =>
+  `<span class="dot ${cls}" style="--c:${esc(ic.color)}"><i>${esc(ic.emoji)}</i>${ic.counter && ic.n ? `<b class="badge">${ic.n}</b>` : ''}</span>`;
 
 /* ---------- periodo ---------- */
 function periodDays() {
@@ -98,7 +105,7 @@ async function sync({ pull = true } = {}) {
   try {
     if (state.pendingIcons) { await api('saveIcons', { icons: state.icons }); state.pendingIcons = false; save(); }
     for (const date of Object.keys(state.pendingDates)) {
-      await api('setDay', { date, icons: state.days[date] || [] });
+      await api('setDay', { date, icons: Object.entries(state.days[date] || {}) });
       delete state.pendingDates[date]; save();
     }
     if (pull) {
@@ -110,7 +117,7 @@ async function sync({ pull = true } = {}) {
         state.icons = data.icons;
       }
       const days = {};
-      data.entries.forEach(([d, id]) => (days[d] = days[d] || []).push(id));
+      data.entries.forEach(([d, id, n]) => ((days[d] = days[d] || {})[id] = n || 1));
       state.days = days;
       save();
     }
@@ -156,7 +163,7 @@ function renderCalendar() {
       return `<button class="weekrow ${ds === today ? 'today' : ''}" data-action="day" data-date="${ds}">
         <div class="d"><small>${GG[(d.getDay() + 6) % 7]}</small><b>${d.getDate()}</b></div>
         <div class="items">${ics.length
-          ? ics.map(i => `<span class="chip">${dot(i)}${esc(i.label)}</span>`).join('')
+          ? ics.map(i => `<span class="chip">${dot(i)}${esc(i.label)}${i.counter ? ` ×${i.n}` : ''}</span>`).join('')
           : '<span class="empty">Tocca per aggiungere</span>'}</div>
       </button>`;
     }).join('');
@@ -185,14 +192,16 @@ function renderStats() {
   const total = elapsed.length;
   const logged = elapsed.filter(d => dayIcons(d).length).length;
   const rows = state.icons.map(ic => {
-    const n = elapsed.filter(d => (state.days[d] || []).includes(ic.id)).length;
-    return { ic, n, pct: total ? (n / total) * 100 : 0 };
+    const n = elapsed.filter(d => qty(d, ic.id) > 0).length;
+    const sum = elapsed.reduce((s, d) => s + qty(d, ic.id), 0);
+    return { ic, n, sum, pct: total ? (n / total) * 100 : 0 };
   }).sort((a, b) => b.n - a.n);
   return `<div class="card">
     <p class="summary">${total} ${total === 1 ? 'giorno' : 'giorni'} nel periodo · ${logged} con almeno un'icona</p>
     ${rows.map(r => `<div class="stat" style="--c:${esc(r.ic.color)}">
       ${dot(r.ic)}
-      <div><div class="lbl">${esc(r.ic.label)}</div><div class="num">${r.n} / ${total} giorni</div></div>
+      <div><div class="lbl">${esc(r.ic.label)}</div><div class="num">${r.n} / ${total} giorni${r.ic.counter
+        ? ` · totale ${r.sum}${r.n ? ` · media ${(r.sum / r.n).toFixed(1).replace(/\.0$/, '')}/giorno` : ''}` : ''}</div></div>
       <div class="pct">${r.pct.toFixed(r.pct % 1 ? 1 : 0)}%</div>
       <div class="bar"><div style="width:${r.pct}%"></div></div>
     </div>`).join('')}
@@ -232,10 +241,15 @@ const closeModal = () => modal.close();
 function openDay(ds) {
   const d = parse(ds);
   const paint = () => {
-    const sel = state.days[ds] || [];
     modal.innerHTML = `<h2>${GG[(d.getDay() + 6) % 7]} ${d.getDate()} ${MESI[d.getMonth()]}</h2>
-      ${state.icons.map(ic => `<button class="pick ${sel.includes(ic.id) ? 'on' : ''}" style="--c:${esc(ic.color)}" data-action="toggle" data-id="${esc(ic.id)}">
-        ${dot(ic, 'lg')}<span class="lbl">${esc(ic.label)}</span><span class="ck">✔</span></button>`).join('')}
+      ${state.icons.map(ic => {
+        const n = qty(ds, ic.id), on = n > 0 ? 'on' : '', id = esc(ic.id), c = `style="--c:${esc(ic.color)}"`;
+        return ic.counter
+          ? `<div class="pick ${on}" ${c}>${dot(ic, 'lg')}<span class="lbl">${esc(ic.label)}</span>
+              <span class="stepper"><button data-action="dec" data-id="${id}" aria-label="Meno">−</button><b>${n}</b><button data-action="inc" data-id="${id}" aria-label="Più">+</button></span></div>`
+          : `<button class="pick ${on}" ${c} data-action="toggle" data-id="${id}">
+              ${dot(ic, 'lg')}<span class="lbl">${esc(ic.label)}</span><span class="ck">✔</span></button>`;
+      }).join('')}
       <div class="actions"><button class="btn primary" data-action="close">Fatto</button></div>`;
   };
   modal.dataset.mode = 'day'; modal.dataset.date = ds;
@@ -243,11 +257,15 @@ function openDay(ds) {
   modal.showModal();
 }
 
-function toggleIcon(id) {
+function setQty(ds, id, n) {
+  const day = state.days[ds] || (state.days[ds] = {});
+  if (n > 0) day[id] = Math.min(n, 99); else delete day[id];
+  if (!Object.keys(day).length) delete state.days[ds];
+}
+
+function changeQty(id, delta) {
   const ds = modal.dataset.date;
-  const set = new Set(state.days[ds] || []);
-  set.has(id) ? set.delete(id) : set.add(id);
-  if (set.size) state.days[ds] = [...set]; else delete state.days[ds];
+  setQty(ds, id, delta === 0 ? (qty(ds, id) ? 0 : 1) : qty(ds, id) + delta); // delta 0 = on/off
   touchDay(ds);
   modal._paint();
   render();
@@ -263,6 +281,7 @@ function openIconEditor(id) {
       <div class="field"><span>Icona</span>
         <div class="emojis">${EMOJIS.map(e => `<button data-action="pick-emoji" data-e="${e}" class="${e === draft.emoji ? 'on' : ''}">${e}</button>`).join('')}</div></div>
       <label class="field"><span>Oppure scrivi una emoji</span><input type="text" id="ic-emoji" maxlength="4" value="${esc(draft.emoji)}"></label>
+      <label class="check"><input type="checkbox" id="ic-counter" ${draft.counter ? 'checked' : ''}> Conta la quantità per giorno (es. 3 bicchieri)</label>
       <div class="field"><span>Colore</span>
         <div class="swatches">${COLORS.map(c => `<button class="swatch ${c === draft.color ? 'on' : ''}" style="--c:${c}" data-action="pick-color" data-c="${c}"></button>`).join('')}
         <input type="color" id="ic-color" value="${esc(draft.color)}"></div></div>
@@ -277,6 +296,8 @@ function openIconEditor(id) {
     const l = $('#ic-label'), e = $('#ic-emoji');
     if (l) draft.label = l.value;
     if (e && e.value.trim()) draft.emoji = e.value.trim();
+    const c = $('#ic-counter');
+    if (c) draft.counter = c.checked;
   };
   modal.dataset.mode = 'icon';
   modal._paint = paint;
@@ -299,12 +320,8 @@ function deleteIcon() {
   if (!confirm(`Eliminare "${ic.label}"? Verrà rimossa da tutti i giorni.`)) return;
   state.icons = state.icons.filter(i => i.id !== ic.id);
   const touched = [];
-  for (const [d, ids] of Object.entries(state.days)) {
-    if (ids.includes(ic.id)) {
-      const rest = ids.filter(x => x !== ic.id);
-      rest.length ? (state.days[d] = rest) : delete state.days[d];
-      touched.push(d);
-    }
+  for (const d of Object.keys(state.days)) {
+    if (qty(d, ic.id)) { setQty(d, ic.id, 0); touched.push(d); }
   }
   touched.forEach(d => (state.pendingDates[d] = true));
   touchIcons(); closeModal(); render();
@@ -323,7 +340,9 @@ document.addEventListener('click', e => {
     case 'next': shift(1); break;
     case 'today': ui.cursor = new Date(); render(); break;
     case 'day': openDay(d.date); break;
-    case 'toggle': toggleIcon(d.id); break;
+    case 'toggle': changeQty(d.id, 0); break;
+    case 'inc': changeQty(d.id, 1); break;
+    case 'dec': changeQty(d.id, -1); break;
     case 'close': closeModal(); break;
     case 'edit-icon': openIconEditor(d.id); break;
     case 'pick-emoji': modal._icon.keep(); modal._icon.draft.emoji = d.e; modal._paint(); break;

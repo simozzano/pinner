@@ -10,8 +10,8 @@ const SECRET = 'CAMBIA-QUESTO-SEGRETO';
 
 const SHEET_ICONS = 'Icons';
 const SHEET_ENTRIES = 'Entries';
-const ICON_HEADERS = ['id', 'emoji', 'label', 'color'];
-const ENTRY_HEADERS = ['date', 'iconId'];
+const ICON_HEADERS = ['id', 'emoji', 'label', 'color', 'counter'];
+const ENTRY_HEADERS = ['date', 'iconId', 'count'];
 
 function doGet() {
   return json_({ ok: true, msg: 'Pinner API attiva' });
@@ -53,9 +53,10 @@ function sheet_(name, headers) {
   let sh = ss.getSheetByName(name);
   if (!sh) {
     sh = ss.insertSheet(name);
-    sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
     sh.setFrozenRows(1);
   }
+  // Riscrive sempre l'intestazione: aggiunge le colonne nuove a fogli creati da versioni precedenti.
+  sh.getRange(1, 1, 1, headers.length).setNumberFormat('@').setValues([headers]).setFontWeight('bold');
   // Tutto come testo, per evitare che le date vengano convertite.
   sh.getRange(1, 1, sh.getMaxRows(), headers.length).setNumberFormat('@');
   return sh;
@@ -69,17 +70,17 @@ function readRows_(sh, cols) {
 
 function readIcons_() {
   const sh = sheet_(SHEET_ICONS, ICON_HEADERS);
-  return readRows_(sh, 4)
+  return readRows_(sh, 5)
     .filter(r => r[0] !== '')
-    .map(r => ({ id: String(r[0]), emoji: String(r[1]), label: String(r[2]), color: String(r[3]) }));
+    .map(r => ({ id: String(r[0]), emoji: String(r[1]), label: String(r[2]), color: String(r[3]), counter: String(r[4]) === '1' }));
 }
 
 function writeIcons_(icons) {
   const sh = sheet_(SHEET_ICONS, ICON_HEADERS);
-  clearBody_(sh, 4);
+  clearBody_(sh, 5);
   if (icons.length) {
-    const rows = icons.map(i => [i.id, i.emoji, i.label, i.color]);
-    sh.getRange(2, 1, rows.length, 4).setValues(rows);
+    const rows = icons.map(i => [i.id, i.emoji, i.label, i.color, i.counter ? '1' : '0']);
+    sh.getRange(2, 1, rows.length, 5).setValues(rows);
   }
 }
 
@@ -90,19 +91,20 @@ function dateStr_(v) {
 
 function readEntries_() {
   const sh = sheet_(SHEET_ENTRIES, ENTRY_HEADERS);
-  return readRows_(sh, 2)
+  return readRows_(sh, 3)
     .filter(r => r[0] !== '' && r[1] !== '')
-    .map(r => [dateStr_(r[0]), String(r[1])]);
+    .map(r => [dateStr_(r[0]), String(r[1]), Number(r[2]) || 1]); // count vuoto (righe vecchie) = 1
 }
 
-function setDay_(date, iconIds) {
+// entries: array di [iconId, quantità]
+function setDay_(date, entries) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Data non valida');
   const sh = sheet_(SHEET_ENTRIES, ENTRY_HEADERS);
   const rows = readEntries_().filter(r => r[0] !== date);
-  iconIds.forEach(id => rows.push([date, id]));
+  entries.forEach(e => rows.push([date, e[0], e[1]]));
   rows.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-  clearBody_(sh, 2);
-  if (rows.length) sh.getRange(2, 1, rows.length, 2).setValues(rows);
+  clearBody_(sh, 3);
+  if (rows.length) sh.getRange(2, 1, rows.length, 3).setValues(rows);
 }
 
 function clearBody_(sh, cols) {
